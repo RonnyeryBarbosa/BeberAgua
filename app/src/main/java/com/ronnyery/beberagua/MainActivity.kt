@@ -1,13 +1,18 @@
 package com.ronnyery.beberagua
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.SystemClock
 import android.support.v4.content.ContextCompat
 import android.util.Log
 import android.widget.Toast
 import kotlinx.android.synthetic.main.activity_main.*
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -95,10 +100,33 @@ class MainActivity : AppCompatActivity() {
                 edit.putInt(KEY_MINUTE,minute)
                 edit.apply()
 
+
+
+                val calendar = Calendar.getInstance()
+
+                calendar.set(Calendar.HOUR_OF_DAY, hour)
+                calendar.set(Calendar.MINUTE, minute)
+                //calendar.set(Calendar.SECOND,0)
+
+
+                val notificationIntent = Intent(this,NotificationPublish::class.java)
+
+                notificationIntent.putExtra(NotificationPublish.KEY_NOTIFICATION,1)
+                notificationIntent.putExtra(NotificationPublish.KEY_NOTIFICATION, "Beber agua")
+
+                val broadcast = PendingIntent.getBroadcast(this,0,notificationIntent,
+                    PendingIntent.FLAG_CANCEL_CURRENT)
+
+              //  val futureInMillis  = SystemClock.elapsedRealtime() + (interval * 1000)
+
+                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                //alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, futureInMillis, broadcast)
+
+                alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, calendar.timeInMillis,(interval * 60 * 1000).toLong(), broadcast)
+
+                alarmManager.cancel(broadcast)
+
                 actived = true
-
-
-
 
 
             }
@@ -113,6 +141,15 @@ class MainActivity : AppCompatActivity() {
                 btnNotify.setText(R.string.notify)
 
                 btnNotify.setBackgroundColor(ContextCompat.getColor(this, R.color.colorAccent))
+
+                val notificationIntent = Intent(this,NotificationPublish::class.java)
+
+                val broadcast = PendingIntent.getBroadcast(this,0,notificationIntent,
+                    0)
+
+                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+
                 actived = false
 
             }
