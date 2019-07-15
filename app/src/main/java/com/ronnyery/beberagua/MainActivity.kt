@@ -5,11 +5,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.os.SystemClock
-import android.support.v4.content.ContextCompat
-import android.util.Log
+import android.support.v7.app.AppCompatActivity
+import android.view.View
 import android.widget.Toast
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
@@ -28,26 +26,64 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var actived: Boolean = false
-    private var minute: Int = 0
-    private var hour: Int = 0
-    private var interval: Int = 0
+
+    lateinit var storage : SharedPreferences
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val storage : SharedPreferences = getSharedPreferences("storage",Context.MODE_PRIVATE)
+        storage = getSharedPreferences("storage",Context.MODE_PRIVATE)
 
-        val edit = storage.edit()
 
         actived = storage.getBoolean(KEY_NOTIFY,false)
 
+        setupUI(actived,storage)
 
-        if(actived)
+
+
+        timePiker.setIs24HourView(true)
+
+        btnNotify.setOnClickListener(notifyListener)
+
+    }
+
+    private fun alert(resId: Int)
+    {
+        Toast.makeText(this, resId, Toast.LENGTH_LONG).show()
+
+    }
+
+    private fun intervalIsValid(): Boolean
+    {
+
+        val sInteval = editNumberInteger.text.toString()
+
+        if (sInteval.isEmpty())
+        {
+            alert(R.string.validation)
+
+            return false
+        }
+
+        if (sInteval == "0")
+        {
+            alert(R.string.zero_value)
+            return false
+        }
+
+        return true
+    }
+
+    private fun setupUI(activated: Boolean, storage: SharedPreferences)
+    {
+
+        if(activated)
         {
             btnNotify.setText(R.string.pause)
 
-            btnNotify.setBackgroundColor(ContextCompat.getColor(this, android.R.color.black))
+            btnNotify.setBackgroundResource(R.drawable.bg_button_background)
 
             editNumberInteger.setText(storage.getInt(KEY_INTERVAL,0).toString())
 
@@ -55,107 +91,124 @@ class MainActivity : AppCompatActivity() {
 
             timePiker.currentMinute = storage.getInt(KEY_MINUTE,timePiker.currentMinute)
 
-
-
         }
         else
         {
             btnNotify.setText(R.string.notify)
 
-            btnNotify.setBackgroundColor(ContextCompat.getColor(this, R.color.colorAccent))
+            btnNotify.setBackgroundResource(R.drawable.bg_button_background_accent)
+        }
+    }
+
+    private fun updateStorage(added:Boolean, interval: Int = 0, hour: Int = 0, minute: Int = 0) {
+        val edit = storage.edit()
+
+        edit.putBoolean(KEY_NOTIFY, added)
+
+        if (added)
+        {
+            edit.putInt(KEY_INTERVAL, interval)
+            edit.putInt(KEY_HOUR, hour)
+            edit.putInt(KEY_MINUTE, minute)
+        }
+        else
+        {
+            edit.remove(KEY_INTERVAL)
+            edit.remove(KEY_HOUR)
+            edit.remove(KEY_MINUTE)
         }
 
-        timePiker.setIs24HourView(true)
 
-        btnNotify.setOnClickListener {
+        edit.apply()
+    }
+
+    private fun setupNOtification(added:Boolean, interval: Int=0, hour: Int=0, minute: Int=0)
+    {
+
+        val notificationIntent = Intent(this,NotificationPublish::class.java)
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
 
-            val sInteval = editNumberInteger.text.toString()
+        if(added) {
+
+            val calendar = Calendar.getInstance()
+
+            calendar.set(Calendar.HOUR_OF_DAY, hour)
+            calendar.set(Calendar.MINUTE, minute)
+            calendar.set(Calendar.SECOND,0)
 
 
-            if (sInteval.isEmpty())
+            notificationIntent.putExtra(NotificationPublish.KEY_NOTIFICATION, 1)
+            notificationIntent.putExtra(NotificationPublish.KEY_NOTIFICATION, "Beber agua")
+
+            val broadcast = PendingIntent.getBroadcast(
+                this, 0, notificationIntent,
+                PendingIntent.FLAG_CANCEL_CURRENT
+            )
+
+            //  val futureInMillis  = SystemClock.elapsedRealtime() + (interval * 1000)
+
+            //alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, futureInMillis, broadcast)
+
+            alarmManager.setInexactRepeating(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                (interval * 60 * 1000).toLong(),
+                broadcast
+            )
+
+           // alarmManager.cancel(broadcast)
+        }
+        else
+        {
+
+            val broadcast = PendingIntent.getBroadcast(this,0,notificationIntent,
+                0)
+
+            alarmManager.cancel(broadcast)
+        }
+
+    }
+
+
+        private val notifyListener: View.OnClickListener = View.OnClickListener {
+
+
+
+
+            if (!actived)
             {
-                Toast.makeText(this, getString(R.string.validation), Toast.LENGTH_LONG).show()
 
-                return@setOnClickListener
-            }
+                if (!intervalIsValid()) return@OnClickListener
 
+                val interval:Int = editNumberInteger.text.toString().toInt()
+                val hour:Int = timePiker.currentHour
+                val minute:Int = timePiker.currentMinute
 
-            if (!actived) {
-                interval = sInteval.toInt()
-
-                hour = timePiker.currentHour
-
-                minute = timePiker.currentMinute
-
-                btnNotify.setText(R.string.pause)
-
-                btnNotify.setBackgroundColor(ContextCompat.getColor(this, android.R.color.black))
-
-                Log.d("DATE", "$interval $hour $minute")
-
-                edit.putBoolean(KEY_NOTIFY, true)
-                edit.putInt(KEY_INTERVAL,interval)
-                edit.putInt(KEY_HOUR,hour)
-                edit.putInt(KEY_MINUTE,minute)
-                edit.apply()
-
-
-
-                val calendar = Calendar.getInstance()
-
-                calendar.set(Calendar.HOUR_OF_DAY, hour)
-                calendar.set(Calendar.MINUTE, minute)
-                //calendar.set(Calendar.SECOND,0)
-
-
-                val notificationIntent = Intent(this,NotificationPublish::class.java)
-
-                notificationIntent.putExtra(NotificationPublish.KEY_NOTIFICATION,1)
-                notificationIntent.putExtra(NotificationPublish.KEY_NOTIFICATION, "Beber agua")
-
-                val broadcast = PendingIntent.getBroadcast(this,0,notificationIntent,
-                    PendingIntent.FLAG_CANCEL_CURRENT)
-
-              //  val futureInMillis  = SystemClock.elapsedRealtime() + (interval * 1000)
-
-                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                //alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, futureInMillis, broadcast)
-
-                alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, calendar.timeInMillis,(interval * 60 * 1000).toLong(), broadcast)
-
-                alarmManager.cancel(broadcast)
+                updateStorage(true,interval, hour, minute)
+                setupUI(true,storage)
+                setupNOtification(true,interval,hour,minute)
+                alert(R.string.notified)
 
                 actived = true
-
 
             }
             else
             {
 
-                edit.putBoolean(KEY_NOTIFY, false)
-                edit.remove(KEY_INTERVAL)
-                edit.remove(KEY_HOUR)
-                edit.remove(KEY_MINUTE)
-                edit.apply()
-                btnNotify.setText(R.string.notify)
-
-                btnNotify.setBackgroundColor(ContextCompat.getColor(this, R.color.colorAccent))
-
-                val notificationIntent = Intent(this,NotificationPublish::class.java)
-
-                val broadcast = PendingIntent.getBroadcast(this,0,notificationIntent,
-                    0)
-
-                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
+                updateStorage(false)
+                setupUI(false,storage)
+                setupNOtification(false)
+                alert(R.string.notified_pause)
 
                 actived = false
 
             }
 
 
-        }
-
     }
+
+
+
+
 }

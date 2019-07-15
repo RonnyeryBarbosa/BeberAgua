@@ -40,7 +40,7 @@
             android:layout_height="wrap_content"
             android:id="@+id/btnNotify"
             android:textColor="@android:color/white"
-            android:background="@color/colorAccent"
+            android:background="@drawable/bg_button_background_accent"
             app:layout_constraintTop_toBottomOf="@+id/editNumberInteger"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
